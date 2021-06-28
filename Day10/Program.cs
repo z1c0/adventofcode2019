@@ -33,65 +33,85 @@ static (int, int) Part1()
 
 static void Part2((int, int) location)
 {
-	location = (8, 3);
 	var asteroids = ReadInput().ToList();
-	foreach (var a in GetInLineOfSight(location, asteroids))
+	var i = 1;
+	while (asteroids.Count > 1)
 	{
-		System.Console.WriteLine(a);
+		foreach (var a in GetInLineOfSight(location, asteroids))
+		{
+			//Console.WriteLine($"{i++} vaporizing {a}");
+			if (i == 200)
+			{
+				Console.WriteLine($"The 200th asteroid to be vaporized is at {a} -> code {a.x * 100 + a.y}");
+			}
+			asteroids.Remove(a);
+			i++;
+		}
 	}
 }
 
 static List<(int x, int y)> GetInLineOfSight((int x, int y) a, List<(int x, int y)> asteroids)
 {
 	var inLineOfSight = new List<(int x, int y)>();
-	foreach (var b in asteroids)
-	{
-		if (a != b)
-		{
-			var haveLineOfSight = true;
-			var distAB = GetDistance(a, b);
-			foreach (var c in asteroids)
-			{
-				if (a != c)
-				{
-					var distAC = GetDistance(a, c);
-					// if c is closer to a than b, only then can it occlude the line-of-sight
-					if (distAC < distAB)
-					{
-						// check if a, b, c share a line-of-sight
-						var normAB = Normalize(a, b);
-						var normAC = Normalize(a, c);
-						if (AreEqual(normAB, normAC))
-						{
-							haveLineOfSight = false;
-							break;
-						}
-					}
-				}
-			}
-			if (haveLineOfSight)
-			{
-				inLineOfSight.Add(b);
-			}
-		}
-	}
+	inLineOfSight.AddRange(GetInLineOfSightForQuarter(a, asteroids, 1));
+	inLineOfSight.AddRange(GetInLineOfSightForQuarter(a, asteroids, 2));
+	inLineOfSight.AddRange(GetInLineOfSightForQuarter(a, asteroids, 3));
+	inLineOfSight.AddRange(GetInLineOfSightForQuarter(a, asteroids, 4));
 	return inLineOfSight;
 }
 
-static bool AreEqual((double dx, double dy) a, (double dx, double dy) b)
+static List<(int x, int y)> GetInLineOfSightForQuarter((int x, int y) a, List<(int x, int y)> asteroids, int quarter)
 {
-	const double delta = 0.0000001;
-	return
-		Math.Abs(b.dx - a.dx) < delta &&
-		Math.Abs(b.dy - a.dy) < delta;
+	var inLineOfSight = new List<(int x, int y)>();
+	var filtered = asteroids.Where(aa => a != aa && quarter switch
+	{
+		1 => (aa.x - a.x) >= 0 && (a.y - aa.y) > 0,
+		2 => (aa.x - a.x) > 0 && (a.y - aa.y) <= 0,
+		3 => (aa.x - a.x) <= 0 && (a.y - aa.y) <= 0,
+		4 => (aa.x - a.x) < 0 && (a.y - aa.y) > 0,
+		_ => throw new InvalidOperationException()
+	});
+
+	foreach (var b in filtered)
+	{
+		var haveLineOfSight = true;
+		var distAB = GetDistance(a, b);
+		foreach (var c in filtered)
+		{
+			var distAC = GetDistance(a, c);
+			// if c is closer to a than b, only then can it occlude the line-of-sight
+			if (distAC < distAB)
+			{
+				// check if a, b, c share a line-of-sight
+				var sAB = GetSlope(a, b);
+				var sAC = GetSlope(a, c);
+				if (AreEqual(sAB, sAC))
+				{
+					haveLineOfSight = false;
+					break;
+				}
+			}
+		}
+		if (haveLineOfSight)
+		{
+			inLineOfSight.Add(b);
+		}
+	}
+	inLineOfSight.Sort((x, y) => GetSlope(a, y).CompareTo(GetSlope(a, x)));
+	return inLineOfSight;
 }
 
-static (double dx, double dy) Normalize((int x, int y) a, (int x, int y) b)
+static double GetSlope((int x, int y) a, (int x, int y) b)
 {
-	var distance = GetDistance(a, b);
-	var dx = (b.x - a.x) / distance;
-	var dy = (b.y - a.y) / distance;
-	return (dx, dy);
+	var dy = (double)b.y - a.y;
+	var dx = (double)b.x - a.x;
+	return dy == 0 ? double.PositiveInfinity : dx / dy;
+}
+
+static bool AreEqual(double x, double y)
+{
+	const double delta = 0.0000001;
+	return x == y || Math.Abs(x - y) < delta;
 }
 
 static double GetDistance((int x, int y) a, (int x, int y) b)
