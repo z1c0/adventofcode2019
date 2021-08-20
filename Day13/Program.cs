@@ -5,9 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-// Day 11
-
-Console.WriteLine("START");
+Console.WriteLine("Day 13 - START");
 var sw = Stopwatch.StartNew();
 Part1();
 Part2();
@@ -16,17 +14,21 @@ Console.WriteLine($"END (after {sw.Elapsed.TotalSeconds} seconds)");
 static void Part1()
 {
 	var instructions = ReadInput();
-	var robot = new Robot(0);
-	robot.Run(instructions);
-	Console.WriteLine($"Number of panels painted at least once: {robot.Panels.Count}");
+	var arcade = new Arcade();
+	arcade.Run(instructions);
+	arcade.Draw();
+	Console.WriteLine($"Number of block tiles: {arcade.Tiles.Count(t => t.Value == 2)}");
 }
 
 static void Part2()
 {
-	var instructions = ReadInput();
-	var robot = new Robot(1);
-	robot.Run(instructions);
-	robot.PrintPanel();
+	var instructions = ReadInput().ToList();
+	instructions[0] = 2;
+	var arcade = new Arcade();
+	arcade.InputQueue.AddRange(File.ReadAllText("joystick.txt").Split(',').Select(a => long.Parse(a)));
+	arcade.Run(instructions);
+	arcade.Draw();
+	//File.WriteAllText("joystick.txt", string.Join(',', arcade.InputHistory));
 }
 
 static IEnumerable<long> ReadInput()
@@ -37,25 +39,38 @@ static IEnumerable<long> ReadInput()
 	}
 }
 
-class Robot
+class Arcade
 {
-	enum Direction
-	{
-		Up,
-		Down,
-		Left,
-		Right,
-	}
-	internal Dictionary<(int, int), long> Panels { get; set;} = new();
-	private int _x;
-	private int _y;
-	private Direction _direction = Direction.Up;
-	private bool _expectColor = true;
-	private readonly long _defaultColor;
+	private int _state = 0;
+	private long _x = 0;
+	private long _y = 0;
 
-	public Robot(long defaultColor)
+	public List<long> InputQueue { get; }= new();
+
+	public List<long> InputHistory { get; } = new();
+	internal Dictionary<(long, long), long> Tiles  { get; } = new();
+
+	internal void Draw()
 	{
-		_defaultColor = defaultColor;
+		var maxX = Tiles.Keys.Max(k => k.Item1);
+		var maxY = Tiles.Keys.Max(k => k.Item2);
+		for (var y = 0; y <= maxY; y++)
+		{
+			for (var x = 0; x <= maxX; x++)
+			{
+				var p = Tiles[(x, y)] switch 
+				{
+					0 => ' ',
+					1 => '+',
+					2 => '*',
+					3 => '-',
+					4 => 'o',
+					_ => throw new InvalidOperationException()
+				};
+				Console.Write(p);
+			}
+			Console.WriteLine();
+		}
 	}
 
 	internal void Run(IEnumerable<long> instructions)
@@ -64,48 +79,48 @@ class Robot
 		{
 			ReadInput = () => 
 			{
-				if (Panels.TryGetValue((_x, _y), out var color))
+				long command;
+				if (InputQueue.Count > 0)
 				{
-					return color;
-				}
-				return _defaultColor;
-			},
-			WriteOutput = (value) =>
-			{
-				if (value > 1)
-				{
-					throw new Exception($"Unexpected output: {value}");
-				}
-
-				if (_expectColor)
-				{
-					Panels[(_x, _y)] = value;
-					_expectColor = false;
+					command = InputQueue[0];
+					InputQueue.RemoveAt(0);
 				}
 				else
 				{
-					if (value == 0)
+					Draw();
+					Console.Write("Joystick: ");
+					command = Console.ReadKey().Key switch
 					{
-						TurnLeft();
-					}
-					else
-					{
-						TurnRight();
-					}
-					_x = _direction switch
-					{
-						Direction.Left => _x - 1,
-						Direction.Right => _x + 1,
-						_ => _x,
+						ConsoleKey.LeftArrow => -1,
+						ConsoleKey.RightArrow => 1,
+						_ => 0
 					};
-					_y = _direction switch
-					{
-						Direction.Up => _y - 1,
-						Direction.Down => _y + 1,
-						_ => _y,
-					};
-					_expectColor = true;
 				}
+				InputHistory.Add(command);
+				return command;
+			},
+			WriteOutput = (value) =>
+			{
+				switch (_state)
+				{
+					case 0:
+						_x = value;
+						break;
+					case 1:
+						_y = value;
+						break;
+					case 2:
+						if (_x == -1 && _y == 0)
+						{
+							Console.WriteLine($"Score: {value}");
+						}
+						else
+						{
+							Tiles[(_x, _y)] = value;
+						}
+						break;
+				}
+				_state = (_state + 1) % 3;
 			}
 		};
 		
@@ -114,45 +129,6 @@ class Robot
 			cpu.Run();
 		}
 		while (cpu.IsRunning);
-	}
-
-	private void TurnRight()
-	{
-		_direction = _direction switch
-		{
-			Direction.Up => Direction.Right,
-			Direction.Right => Direction.Down,
-			Direction.Down => Direction.Left,
-			Direction.Left => Direction.Up,
-			_ => throw new Exception("Unexpected direction"),
-		};
-	}
-
-	private void TurnLeft()
-	{
-		_direction = _direction switch
-		{
-			Direction.Up => Direction.Left,
-			Direction.Left => Direction.Down,
-			Direction.Down => Direction.Right,
-			Direction.Right => Direction.Up,
-			_ => throw new Exception("Unexpected direction"),
-		};
-	}
-
-	internal void PrintPanel()
-	{
-		var w = Panels.Keys.Max(k => k.Item1);
-		var h = Panels.Keys.Max(k => k.Item2);
-		for (var y = 0; y <= h; y++)
-		{
-			for (var x = 0; x <= w; x++)
-			{
-				var color = Panels.TryGetValue((x, y), out var value) ? value : 0;
-				Console.Write(color == 1 ? '#' : ' ');
-			}
-			Console.WriteLine();
-		}
 	}
 }
 
