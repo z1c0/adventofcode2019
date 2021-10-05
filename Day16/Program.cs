@@ -7,7 +7,7 @@ using System.Linq;
 Console.WriteLine("Day 16 - START");
 var sw = Stopwatch.StartNew();
 Part1();
-//Part2();
+Part2();
 Console.WriteLine($"END (after {sw.Elapsed.TotalSeconds} seconds)");
 
 static void Part1()
@@ -35,9 +35,8 @@ static void Part2()
 	const int phases = 100;
 	for (var phase = 1; phase <= phases; phase++)
 	{
-		CalculatePhase(input, output);
+		CalculatePhaseCheat(input, output);
 		input = output;
-		System.Console.WriteLine($"{phase}");
 	}
 
 	var offset = 0;
@@ -66,6 +65,21 @@ static void CalculatePhase(List<int> input, List<int> output)
 		}
 		output[i] = (int)Math.Abs(l % 10);
 		offs++;
+	}
+}
+
+static void CalculatePhaseCheat(List<int> input, List<int> output)
+{
+	// "cheat" because this is only correct for the second half of the array.
+	// coincidentally, that's where the offset points us to.
+	var count = input.Count;
+	var offs = count - 1;
+	output[offs] = input[offs];
+	offs--;
+	while (offs >= 0)
+	{
+		output[offs] = (input[offs] + output[offs + 1]) % 10;
+		offs--;
 	}
 }
 
