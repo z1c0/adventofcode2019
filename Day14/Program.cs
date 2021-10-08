@@ -7,53 +7,86 @@ using System.Linq;
 Console.WriteLine("Day 14 - START");
 var sw = Stopwatch.StartNew();
 Part1();
+Part2();
 Console.WriteLine($"END (after {sw.Elapsed.TotalSeconds} seconds)");
 
 static void Part1()
 {
-	var input = ReadInput();
-	var ore = Resolve("FUEL", 1, input, new());
+	var instructions = ReadInput();
+	var ore = Produce("FUEL", 1, instructions, new());
 	Console.WriteLine($"{ore} units of ORE are needed.");
 }
 
-static int Resolve(string unit, int amountNeeded, Dictionary<Quantity, List<Quantity>> input, Dictionary<string, int> oreBank)
+static void Part2()
 {
-	// consume unit
-	// is unit banked?
-	// yes: take from bank
-	// no: produce subunit
-	// goto1 with subunit
-
-
-	var ore = 0;
-	var from = input.Single(x => x.Key.Unit == unit);
-	foreach (var f in from.Value)
+	var instructions = ReadInput();
+	const long oreBudget = 1000000000000L;
+	var fuelUnits = 3209000;  // binary search ftw!
+	var step = 1;
+	while (true)
 	{
-		if (f.Unit == "ORE")
+		var ore = Produce("FUEL", fuelUnits, instructions, new());
+		if (ore > oreBudget)
 		{
-			oreBank.TryGetValue(unit, out var banked);
-			if (banked >= amountNeeded)
-			{
-				oreBank[unit] = banked - amountNeeded;
-			}
-			else
-			{
-				var times = (int)Math.Ceiling((double)amountNeeded / from.Key.Amount);
-				var oreProduced = times * f.Amount;
-				var oreConsumed = times * f.Amount;
-				oreBank[unit] = banked + (oreProduced - oreConsumed);
-				ore += oreProduced;
-			}
+			break;
+		}
+		if (fuelUnits % 1000 == 0) System.Console.WriteLine(fuelUnits);
+		fuelUnits += step;
+	}
+	Console.WriteLine($"{fuelUnits - step} FUEL units can be produced.");
+}
+
+static long Produce(string what, long amountNeeded, Dictionary<Quantity, List<Quantity>> instructions, Dictionary<string, long> bank)
+{
+	var oreProduced = 0L;
+
+	var instruction = instructions.Single(i => i.Key.Unit == what);
+	// correct amountNeeded
+	var amountProduced = instruction.Key.Amount; // amount produced in 1 reaction
+	var numberOfReactions = (long)Math.Ceiling((double)amountNeeded / amountProduced); // reactions necessary
+	foreach (var i in instruction.Value)
+	{
+		oreProduced += Consume(i.Unit, i.Amount * numberOfReactions, instructions, bank);
+	}
+	var amountReallyProduced = amountProduced * numberOfReactions;
+	if (amountReallyProduced > amountNeeded)
+	{
+		bank.TryGetValue(what, out var n);
+		bank[what] = n + (amountReallyProduced - amountNeeded);
+	}
+
+	return oreProduced;
+}
+
+static long Consume(string what, long amountNeeded, Dictionary<Quantity, List<Quantity>> instructions, Dictionary<string, long> bank)
+{
+	var oreProduced = 0L;
+	if (bank.ContainsKey(what))
+	{
+		if (bank[what] >= amountNeeded)
+		{
+			bank[what] -= amountNeeded;
+			amountNeeded = 0;
 		}
 		else
 		{
-			for (var i = 0; i < amountNeeded; i++)
-			{
-				ore += Resolve(f.Unit, f.Amount, input, oreBank);
-			}
+			amountNeeded -= bank[what];
+			bank[what] = 0;
 		}
 	}
-	return ore;
+
+	if (amountNeeded > 0)
+	{
+		if (what == "ORE")
+		{
+			oreProduced = amountNeeded;
+		}
+		else
+		{
+			oreProduced = Produce(what, amountNeeded, instructions, bank);
+		}
+	}
+	return oreProduced;
 }
 
 static Dictionary<Quantity, List<Quantity>> ReadInput()
