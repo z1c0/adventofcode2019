@@ -15,85 +15,108 @@ static void Part1()
 	var (pos, numberOfKeys) = AnalyzeMap(map);
 	Console.WriteLine($"Start position: {pos}");
 	Console.WriteLine($"Number of keys: {numberOfKeys}");
-	//Print(map);
-	var minSteps = int.MaxValue;
-	Move(pos.x, pos.y, map, numberOfKeys, new(), new(), new(), -1, ref minSteps, new());
+	var keys = new HashSet<Node>();
+	var currentNode = new Node(pos.x, pos.y);
+	FindPath(map, currentNode, keys, numberOfKeys);
 }
 
-static void Move(int x, int y, char[,] map, int numberOfKeys, List<char> doors, List<char> keys, HashSet<string> history, int steps, ref int minSteps, HashSet<string> cache)
+static void FindPath(char[,] map, Node currentNode, HashSet<Node> keys, int numberOfKeys)
 {
-	steps++;
-	if (steps > minSteps)
+	var result = BFS(currentNode, map, keys);
+	if (result.Any())
 	{
-		return;
-	}
-	var w = map.GetLength(1);
-	var h = map.GetLength(0);
-	if (x < 0 || x >= w || y < 0 || y >= h)
-	{
-		return;
-	}
-	var c = map[y, x];
-	if (c == '#')
-	{
-		return;
-	}
-	if (c >= 'A' && c <= 'Z')
-	{
-		if (!keys.Contains(char.ToLower(c)))
+		foreach (var n in result)
 		{
-			return;
+			keys.Add(n);
+			//Console.WriteLine(n);
+			FindPath(map, new Node(n.X, n.Y, n.Key), keys.ToHashSet(), numberOfKeys);
 		}
-		if (!doors.Contains(c))
+
+		if (keys.Count == numberOfKeys)
 		{
-			doors.Add(c);
-		}
-	}
-
-	var fingerPrintCache = CreateCacheFingerprint(x, y, doors, keys);
-	if (cache.Contains(fingerPrintCache))
-	{
-		return;
-	}
-	cache.Add(fingerPrintCache);
-
-
-	var fingerPrint = CreateFingerprint(x, y, doors, keys);
-	if (!history.Contains(fingerPrint))
-	{
-		history.Add(fingerPrint);
-
-		if (c >= 'a' && c <= 'z')
-		{
-			if (!keys.Contains(c))
+			var distance = 0;
+			foreach (var n in keys)
 			{
-				keys.Add(c);
-				if (keys.Count == numberOfKeys && steps <= minSteps)
+				Console.WriteLine(n);
+				distance += n.Distance;
+			}
+			Console.WriteLine(distance);
+			Console.WriteLine();
+		}
+	}
+}
+
+static List<Node> BFS(Node startNode, char[,] map, HashSet<Node> collectedKeys)
+{
+	var newKeys = new List<Node>();
+	var visitedNodes = new List<Node>
+	{
+		startNode
+	};
+	var queue = new LinkedList<Node>();
+	queue.AddLast(startNode);
+	startNode.Distance = 0;
+	while (queue.Any())
+	{
+		startNode = queue.First.Value;
+		queue.RemoveFirst();
+		var adjacentNodes = GetAdjacentNodes(startNode, map, collectedKeys).ToList();
+		if (adjacentNodes.Any())
+		{
+			foreach (var node in adjacentNodes)
+			{
+				node.Distance = startNode.Distance + 1;
+				if (!visitedNodes.Contains(node))
 				{
-					minSteps = steps;
-					Console.WriteLine($"All keys found after {minSteps} steps: {string.Join(", ", keys)} doors: {string.Join(", ", doors)}");
-					return;
+					if (node.Key != 0 && !collectedKeys.Contains(node))
+					{
+						newKeys.Add(node);
+					}
+					visitedNodes.Add(node);
+					queue.AddLast(node);
 				}
 			}
 		}
-		
-		Move(x - 1, y, map, numberOfKeys, doors.ToList(), keys.ToList(), history.ToHashSet(), steps, ref minSteps, cache);
-		Move(x + 1, y, map, numberOfKeys, doors.ToList(), keys.ToList(), history.ToHashSet(), steps, ref minSteps, cache);
-		Move(x, y - 1, map, numberOfKeys, doors.ToList(), keys.ToList(), history.ToHashSet(), steps, ref minSteps, cache);
-		Move(x, y + 1, map, numberOfKeys, doors.ToList(), keys.ToList(), history.ToHashSet(), steps, ref minSteps, cache);
 	}
+	return newKeys;
 }
 
-static string CreateFingerprint(int x, int y, List<char> doors, List<char> keys)
+static IEnumerable<Node> GetAdjacentNodes(Node node, char[,] map, HashSet<Node> keys)
 {
-	return $"{x}/{y}|{string.Join(',', doors)}|{string.Join(',', keys)}";
+	var n1 = new Node(node.X - 1, node.Y);
+	var n2 = new Node(node.X + 1, node.Y);
+	var n3 = new Node(node.X, node.Y - 1);
+	var n4 = new Node(node.X, node.Y + 1);
+	if (CheckNode(n1, map, keys)) yield return n1;
+	if (CheckNode(n2, map, keys)) yield return n2;
+	if (CheckNode(n3, map, keys)) yield return n3;
+	if (CheckNode(n4, map, keys)) yield return n4;
 }
 
-static string CreateCacheFingerprint(int x, int y, List<char> doors, List<char> keys)
+static bool CheckNode(Node node, char[,] map, HashSet<Node> keys)
 {
-	//return $"{x}/{y}|{string.Join(',', doors.OrderBy(d => d))}|{string.Join(',', keys.OrderBy(k => k))}";
-	return $"{x}/{y}|{string.Join(',', keys)}";
-	//return $"{string.Join(',', doors)}|{string.Join(',', keys)}";
+	var w = map.GetLength(1);
+	var h = map.GetLength(0);
+	if (node.X < 0 || node.X >= w || node.Y < 0 || node.Y >= h)
+	{
+		return false;
+	}
+	var c = map[node.Y, node.X];
+	if (c == '#')
+	{
+		return false;
+	}
+	if (c >= 'A' && c <= 'Z')
+	{		
+		// Do we have a key for this door?
+		return keys.Any(n => n.Key == Char.ToLower(c));
+	}
+	if (c >= 'a' && c <= 'z')
+	{
+		node.Key = c;
+		return true;
+	}
+	return true;
 }
 
 static ((int x, int y) pos, int numberOfKeys) AnalyzeMap(char[,] map)
@@ -119,18 +142,6 @@ static ((int x, int y) pos, int numberOfKeys) AnalyzeMap(char[,] map)
 	return (pos, numberOfKeys);
 }
 
-static void Print(char[,] map)
-{
-	for (var y = 0; y < map.GetLength(0); y++)
-	{
-		for (var x = 0; x < map.GetLength(1); x++)
-		{
-			Console.Write(map[y, x]);
-		}
-		Console.WriteLine();
-	}
-}
-
 static char[,] ReadInput()
 {
 	var lines = File.ReadAllLines("input.txt");
@@ -145,4 +156,35 @@ static char[,] ReadInput()
 		}
 	}
 	return map;
+}
+class Node
+{
+	internal Node(int x, int y, char key = '\0')
+	{
+		X = x;
+		Y = y;
+		Key = key;
+	}
+
+	internal int X { get; }
+	internal int Y { get; }
+	internal char Key { get; set; }
+
+	internal int Distance { get; set; }
+
+	public override bool Equals(object obj)
+	{
+		var other = (Node)obj;
+		return X == other.X && Y == other.Y;
+	}	
+
+	public override string ToString()
+	{
+		return $"{Key} @ {X}/{Y} ({Distance})";
+	}
+
+	public override int GetHashCode()
+	{
+		return X.GetHashCode() ^ Y.GetHashCode();
+	}
 }
