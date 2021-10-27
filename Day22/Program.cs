@@ -6,8 +6,8 @@ using System.Linq;
 
 Console.WriteLine("Day 22 - START");
 var sw = Stopwatch.StartNew();
-//Part1(10007, 1);
-Part1(119315717514047, 1);
+Part1(10007, 1);
+//Part1(119315717514047, 1);
 //Part1(119315717514047);
 Console.WriteLine($"END (after {sw.Elapsed.TotalSeconds} seconds)");
 
@@ -22,10 +22,8 @@ static void Part1(long count, long iterations)
 	var instructions = ReadInput().ToList();
 	for (var l = 0L; l < iterations; l++)
 	{
-		var k = 0;
 		foreach (var instr in instructions)
 		{
-			System.Console.WriteLine(instr);
 			switch (instr.Technique)
 			{
 				case Technique.NewStack:
@@ -62,16 +60,10 @@ static void Part1(long count, long iterations)
 					throw new InvalidOperationException($"{instr}");
 			}
 		}
-		if (l % 10_000 == 0) System.Console.WriteLine(l);
 	}
-	//Print(deck);
+
 	var pos = deck.IndexOf(2019);
 	Console.WriteLine($"Position of card {2019} is {pos}");
-}
-
-static void Print(List<int> deck)
-{
-	Console.WriteLine(string.Join(' ', deck));
 }
 
 static IEnumerable<(Technique Technique, int Value)> ReadInput()
