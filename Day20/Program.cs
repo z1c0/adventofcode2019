@@ -7,6 +7,7 @@ using System.Linq;
 Console.WriteLine("Day 20 - START");
 var sw = Stopwatch.StartNew();
 Part1();
+Part2();
 Console.WriteLine($"END (after {sw.Elapsed.TotalSeconds} seconds)");
 
 static void Part1()
@@ -18,7 +19,111 @@ static void Part1()
 	}
 	var startPortal = portals.Single(p => p.Id == "AA" && p.OutSide);
 	Print(maze, portals);
-	//BFS_Portals(startPortal, portals);
+	var path = BFS_Portals(startPortal, portals);
+	CalculateDistance(path);
+}
+
+static void Part2()
+{
+	var (maze, portals) = ReadInput();
+	foreach (var portal in portals)
+	{
+		BFS_Maze(portal, maze, portals);
+	}
+	var startPortal = portals.Single(p => p.Id == "AA" && p.OutSide);
+	var path = BFS_PortalsRecursive(startPortal, portals);
+	CalculateDistance(path);
+}
+
+static void CalculateDistance(List<Portal> path)
+{
+	var distance = 0;
+	for (var i = 0; i < path.Count - 1; i++)
+	{
+		var current = path[i];
+		var next = path[i + 1];
+		var c = current.ConnectedPortals.Single(p => p.Portal.Id == next.Id);
+		distance += c.Distance;
+		if (c.Portal.OutSide != next.OutSide)
+		{
+			distance++;
+		}
+	}
+	Console.WriteLine($"Distance: {distance}");
+}
+
+static List<Portal> BFS_PortalsRecursive(Portal startPortal, List<Portal> portals)
+{
+	var result = new List<Portal>();
+	var visitedPortals = new List<HashSet<Portal>>
+	{
+		new HashSet<Portal> { startPortal }
+	};
+	var queue = new List<(Portal Portal, int Level)>
+	{
+		(startPortal, 0)
+	};
+	while (queue.Any())
+	{
+		var item = queue.First();
+		queue.RemoveAt(0);
+		foreach (var e in GetConnectedPortalsRecursive(item, portals))
+		{
+			if (e.Level >= visitedPortals.Count)
+			{
+				visitedPortals.Add(new());
+			}
+			if (!visitedPortals[e.Level].Contains(e.Portal))
+			{
+				if (e.Portal.From != null)
+				{
+					throw new Exception();
+				}
+				Debug.Assert(e.Portal.From == null);
+				e.Portal.From = item.Portal;
+				visitedPortals[e.Level].Add(e.Portal);
+				if (e.Portal.Id == "ZZ" && e.Level == 0)
+				{
+					var curr = e.Portal;
+					while (curr != null)
+					{
+						result.Add(curr);
+						curr = curr.From;
+					}
+					result.Reverse();
+					return result;
+				}
+				queue.Add(e);
+			}
+		}
+	}
+	return null;
+}
+
+static List<(Portal Portal, int Level)> GetConnectedPortalsRecursive((Portal Portal, int Level) item, List<Portal> portals)
+{
+	var list = new List<(Portal Portal, int Level)>();
+	foreach (var c in item.Portal.ConnectedPortals)
+	{
+		if (item.Level == 0 && c.Portal.Id == "ZZ")
+		{
+			list.Add((c.Portal with {}, 0));
+		}
+		var p = portals.SingleOrDefault(pp => pp.Id == c.Portal.Id && pp.OutSide != c.Portal.OutSide);
+		if (p != null)
+		{
+			if (!c.Portal.OutSide)
+			{
+				list.Add((p with {}, item.Level + 1));
+			}
+			else if (item.Level > 0)
+			{
+				list.Add((p with {}, item.Level - 1));
+			}
+		}
+	}
+	//Console.WriteLine($"{item} -> {string.Join(" / ", list)}");
+	return list;
 }
 
 static void BFS_Maze(Portal startPortal, char[,] maze, List<Portal> portals)
@@ -27,17 +132,15 @@ static void BFS_Maze(Portal startPortal, char[,] maze, List<Portal> portals)
 	{
 		(startPortal.X, startPortal.Y)
 	};
-	var queue = new List<(int, int)>
+	var queue = new List<(int, int, int)>
 	{
-		(startPortal.X, startPortal.Y)
+		(startPortal.X, startPortal.Y, 0)
 	};
-	var distance = 0;
 	while (queue.Any())
 	{
-		var node = queue.First();
+		var (x, y, distance) = queue.First();
 		queue.RemoveAt(0);
-		distance++;
-		foreach (var n in GetAdjacentNodes(node, maze))
+		foreach (var n in GetAdjacentNodes((x, y), maze))
 		{
 			if (!visitedNodes.Contains(n))
 			{
@@ -45,20 +148,20 @@ static void BFS_Maze(Portal startPortal, char[,] maze, List<Portal> portals)
 				var portal = portals.SingleOrDefault(p => p.X == n.X && p.Y == n.Y);
 				if (portal != null)
 				{
-					portal.Distance = distance;
-					startPortal.ConnectedPortals.Add(portal);
+					startPortal.ConnectedPortals.Add((portal, distance + 1));
 				}
 				else
 				{
-					queue.Add(n);
+					queue.Add((n.X, n.Y, distance + 1));
 				}
 			}
 		}
 	}
 }
 
-static void BFS_Portals(Portal startPortal, List<Portal> portals)
+static List<Portal> BFS_Portals(Portal startPortal, List<Portal> portals)
 {
+	var result = new List<Portal>();
 	var visitedPortals = new HashSet<Portal>
 	{
 		startPortal
@@ -79,29 +182,28 @@ static void BFS_Portals(Portal startPortal, List<Portal> portals)
 				visitedPortals.Add(p);
 				if (p.Id == "ZZ" && p.OutSide)
 				{
-					var zz = p;
-					var distance = 0;
-					while (zz != null)
+					var curr = p;
+					while (curr != null)
 					{
-						Console.WriteLine($"{zz} - {zz.Distance}");
-						distance += zz.Distance;
-						zz = zz.From;
+						result.Add(curr);
+						curr = curr.From;
 					}
-					Console.WriteLine(distance);
-					return;
+					result.Reverse();
+					return result;
 				}
 				queue.Add(p);
 			}
 		}
 	}
+	return null;
 }
 
 static List<Portal> GetConnectedPortals(Portal portal, List<Portal> portals)
 {
-	var connectedPortals = new List<Portal>(portal.ConnectedPortals);
+	var connectedPortals = new List<Portal>(portal.ConnectedPortals.Select(e => e.Portal));
 	foreach (var p in portal.ConnectedPortals)
 	{
-		connectedPortals.AddRange(portals.Where(pp => pp.Id == p.Id && pp.OutSide != p.OutSide));
+		connectedPortals.AddRange(portals.Where(pp => pp.Id == p.Portal.Id && pp.OutSide != p.Portal.OutSide));
 	}
 	return connectedPortals;
 }
@@ -128,7 +230,7 @@ static void Print(char[,] maze, List<Portal> portals)
 		Console.WriteLine(p);
 		foreach (var pp in p.ConnectedPortals)
 		{
-			Console.WriteLine($"  -> {pp} {pp.Distance}");
+			Console.WriteLine($"  -> {pp}");
 		}
 	}
 	var h = maze.GetLength(0);
@@ -185,13 +287,12 @@ static (char[,] Maze, List<Portal> portals) ReadInput()
 
 public record Portal(string Id, int X, int Y, bool OutSide)
 {
-	public List<Portal> ConnectedPortals { get; } = new();
+	public List<(Portal Portal, int Distance)> ConnectedPortals { get; } = new();
 
 	public override string ToString()
 	{
-		return Id + " (" + (OutSide ? "out" : "in") + ")";
+		return Id + " (" + (OutSide ? "out" : "in") + "side)";
 	}
-	public int Distance  { get; set; }
 
 	public Portal From  { get; set; }
 }
