@@ -17,33 +17,62 @@ static void Part1()
 	Console.WriteLine($"Number of keys: {numberOfKeys}");
 	var keys = new HashSet<Node>();
 	var currentNode = new Node(pos.x, pos.y);
-	FindPath(map, currentNode, keys, numberOfKeys);
+	var minDistance = int.MaxValue;
+	var cache = new HashSet<string>();
+	FindPath(map, currentNode, keys, numberOfKeys, ref minDistance, cache);
+	Console.WriteLine($"Minimum distance: {minDistance}");
 }
 
-static void FindPath(char[,] map, Node currentNode, HashSet<Node> keys, int numberOfKeys)
+static void FindPath(char[,] map, Node currentNode, HashSet<Node> keys, int numberOfKeys, ref int minDistance, HashSet<string> cache)
 {
+	var distance = keys.Sum(k => k.Distance);
+	if (distance >= minDistance)
+	{
+		return;
+	}
+	var fingerPrint = FingerPrint(keys);
+	if (cache.Contains(fingerPrint))
+	{
+		return;
+	}
+	cache.Add(fingerPrint);
+
 	var result = BFS(currentNode, map, keys);
 	if (result.Any())
 	{
 		foreach (var n in result)
 		{
-			keys.Add(n);
-			//Console.WriteLine(n);
-			FindPath(map, new Node(n.X, n.Y, n.Key), keys.ToHashSet(), numberOfKeys);
-		}
-
-		if (keys.Count == numberOfKeys)
-		{
-			var distance = 0;
-			foreach (var n in keys)
-			{
-				Console.WriteLine(n);
-				distance += n.Distance;
-			}
-			Console.WriteLine(distance);
-			Console.WriteLine();
+			var copy = keys.ToHashSet();
+			copy.Add(n);
+			FindPath(map, new Node(n.X, n.Y, n.Key), copy, numberOfKeys, ref minDistance, cache);
 		}
 	}
+
+	if (keys.Count == numberOfKeys)
+	{
+		//minDistance = Math.Min(distance, minDistance);
+		if (distance < minDistance)
+		{
+			minDistance = distance;
+			Console.WriteLine(minDistance);
+		}
+		/*
+		var distance = 0;
+		foreach (var n in keys)
+		{
+			Console.WriteLine(n);
+			distance += n.Distance;
+		}
+		Console.WriteLine(distance);
+		Console.WriteLine();
+		*/
+	}
+}
+
+static string FingerPrint(HashSet<Node> keys)
+{
+	var k = string.Join('|', keys.OrderBy(k => k.Key).Select(k => $"{k.Key}-{k.Distance}"));
+	return string.Format($"{k}");
 }
 
 static List<Node> BFS(Node startNode, char[,] map, HashSet<Node> collectedKeys)
@@ -68,12 +97,15 @@ static List<Node> BFS(Node startNode, char[,] map, HashSet<Node> collectedKeys)
 				node.Distance = startNode.Distance + 1;
 				if (!visitedNodes.Contains(node))
 				{
+					visitedNodes.Add(node);
 					if (node.Key != 0 && !collectedKeys.Contains(node))
 					{
 						newKeys.Add(node);
 					}
-					visitedNodes.Add(node);
-					queue.AddLast(node);
+					else
+					{
+						queue.AddLast(node);
+					}
 				}
 			}
 		}
