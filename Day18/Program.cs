@@ -7,125 +7,69 @@ using System.Linq;
 Console.WriteLine("Day 18 - START");
 var sw = Stopwatch.StartNew();
 Part1();
+Part2();
 Console.WriteLine($"END (after {sw.Elapsed.TotalSeconds} seconds)");
 
 static void Part1()
 {	
 	var map = ReadInput();
-	var (pos, numberOfKeys) = AnalyzeMap(map);
-	Console.WriteLine($"Start position: {pos}");
-	Console.WriteLine($"Number of keys: {numberOfKeys}");
-	var keys = new HashSet<Node>();
-	var currentNode = new Node(pos.x, pos.y);
-	var minDistance = int.MaxValue;
-	var cache = new HashSet<string>();
-	FindPath(map, currentNode, keys, numberOfKeys, ref minDistance, cache);
-	Console.WriteLine($"Minimum distance: {minDistance}");
+	var (start, numberOfKeys) = AnalyzeMap(map);
+	var node = BFS(new Node(start.x, start.y), map, numberOfKeys);
+	Console.WriteLine($"Shortest path: {node.Distance}");
 }
 
-static void FindPath(char[,] map, Node currentNode, HashSet<Node> keys, int numberOfKeys, ref int minDistance, HashSet<string> cache)
-{
-	var distance = keys.Sum(k => k.Distance);
-	if (distance >= minDistance)
-	{
-		return;
-	}
-	var fingerPrint = FingerPrint(keys);
-	if (cache.Contains(fingerPrint))
-	{
-		return;
-	}
-	cache.Add(fingerPrint);
-
-	var result = BFS(currentNode, map, keys);
-	if (result.Any())
-	{
-		foreach (var n in result)
-		{
-			var copy = keys.ToHashSet();
-			copy.Add(n);
-			FindPath(map, new Node(n.X, n.Y, n.Key), copy, numberOfKeys, ref minDistance, cache);
-		}
-	}
-
-	if (keys.Count == numberOfKeys)
-	{
-		//minDistance = Math.Min(distance, minDistance);
-		if (distance < minDistance)
-		{
-			minDistance = distance;
-			Console.WriteLine(minDistance);
-		}
-		/*
-		var distance = 0;
-		foreach (var n in keys)
-		{
-			Console.WriteLine(n);
-			distance += n.Distance;
-		}
-		Console.WriteLine(distance);
-		Console.WriteLine();
-		*/
-	}
+static void Part2()
+{	
 }
 
-static string FingerPrint(HashSet<Node> keys)
+static Node BFS(Node startNode, char[,] map, int numberOfKeys)
 {
-	var k = string.Join('|', keys.OrderBy(k => k.Key).Select(k => $"{k.Key}-{k.Distance}"));
-	return string.Format($"{k}");
-}
-
-static List<Node> BFS(Node startNode, char[,] map, HashSet<Node> collectedKeys)
-{
-	var newKeys = new List<Node>();
-	var visitedNodes = new List<Node>
+	var visitedNodes = new Dictionary<string, int>
 	{
-		startNode
+		{ startNode.FingerPrint(), 0 }
 	};
-	var queue = new LinkedList<Node>();
-	queue.AddLast(startNode);
+	var queue = new PriorityQueue<Node>();
+	queue.Add(startNode);
 	startNode.Distance = 0;
-	while (queue.Any())
+	while (queue.Count > 0)
 	{
-		startNode = queue.First.Value;
-		queue.RemoveFirst();
-		var adjacentNodes = GetAdjacentNodes(startNode, map, collectedKeys).ToList();
+		startNode = queue.RemoveFirst();
+		var adjacentNodes = GetAdjacentNodes(startNode, map).ToList();	
 		if (adjacentNodes.Any())
 		{
 			foreach (var node in adjacentNodes)
 			{
 				node.Distance = startNode.Distance + 1;
-				if (!visitedNodes.Contains(node))
+				var fingerPrint = node.FingerPrint();
+				if (!visitedNodes.ContainsKey(fingerPrint) || visitedNodes[fingerPrint] > node.Distance)
 				{
-					visitedNodes.Add(node);
-					if (node.Key != 0 && !collectedKeys.Contains(node))
+					visitedNodes.Add(fingerPrint, node.Distance);
+					queue.Add(node);
+
+					if (node.Keys.Count == numberOfKeys)
 					{
-						newKeys.Add(node);
-					}
-					else
-					{
-						queue.AddLast(node);
+						return node;
 					}
 				}
 			}
 		}
 	}
-	return newKeys;
+	return null;
 }
 
-static IEnumerable<Node> GetAdjacentNodes(Node node, char[,] map, HashSet<Node> keys)
+static IEnumerable<Node> GetAdjacentNodes(Node node, char[,] map)
 {
-	var n1 = new Node(node.X - 1, node.Y);
-	var n2 = new Node(node.X + 1, node.Y);
-	var n3 = new Node(node.X, node.Y - 1);
-	var n4 = new Node(node.X, node.Y + 1);
-	if (CheckNode(n1, map, keys)) yield return n1;
-	if (CheckNode(n2, map, keys)) yield return n2;
-	if (CheckNode(n3, map, keys)) yield return n3;
-	if (CheckNode(n4, map, keys)) yield return n4;
+	var n1 = new Node(node.X - 1, node.Y) { Keys = node.Keys.ToList() };
+	var n2 = new Node(node.X + 1, node.Y) { Keys = node.Keys.ToList() };
+	var n3 = new Node(node.X, node.Y - 1) { Keys = node.Keys.ToList() };
+	var n4 = new Node(node.X, node.Y + 1) { Keys = node.Keys.ToList() };
+	if (CheckNode(n1, map)) yield return n1;
+	if (CheckNode(n2, map)) yield return n2;
+	if (CheckNode(n3, map)) yield return n3;
+	if (CheckNode(n4, map)) yield return n4;
 }
 
-static bool CheckNode(Node node, char[,] map, HashSet<Node> keys)
+static bool CheckNode(Node node, char[,] map)
 {
 	var w = map.GetLength(1);
 	var h = map.GetLength(0);
@@ -141,12 +85,11 @@ static bool CheckNode(Node node, char[,] map, HashSet<Node> keys)
 	if (c >= 'A' && c <= 'Z')
 	{		
 		// Do we have a key for this door?
-		return keys.Any(n => n.Key == Char.ToLower(c));
+		return node.Keys.Contains(char.ToLower(c));
 	}
-	if (c >= 'a' && c <= 'z')
+	if (c >= 'a' && c <= 'z' && !node.Keys.Contains(c))
 	{
-		node.Key = c;
-		return true;
+		node.Keys.Add(c);
 	}
 	return true;
 }
@@ -189,34 +132,84 @@ static char[,] ReadInput()
 	}
 	return map;
 }
-class Node
+class Node : IComparable
 {
-	internal Node(int x, int y, char key = '\0')
+	internal Node(int x, int y)
 	{
 		X = x;
 		Y = y;
-		Key = key;
 	}
 
 	internal int X { get; }
 	internal int Y { get; }
-	internal char Key { get; set; }
+	internal List<char> Keys { get; init; } = new ();
 
 	internal int Distance { get; set; }
 
-	public override bool Equals(object obj)
-	{
-		var other = (Node)obj;
-		return X == other.X && Y == other.Y;
-	}	
-
 	public override string ToString()
 	{
-		return $"{Key} @ {X}/{Y} ({Distance})";
+		return $"{X}/{Y}";
 	}
 
-	public override int GetHashCode()
+	internal string FingerPrint()
 	{
-		return X.GetHashCode() ^ Y.GetHashCode();
+		var k = string.Join('|', Keys.OrderBy(k => k));
+		return string.Format($"{X}/{Y}-{k}");
+	}
+
+	public int CompareTo(object obj)
+	{
+		return ((Node)obj).Distance.CompareTo(Distance);
+	}
+}
+
+// from: https://stackoverflow.com/a/33888482/1051140
+internal class PriorityQueue<T>
+{
+	readonly IComparer<T> comparer;
+	T[] heap;
+	public int Count { get; private set; }
+	public PriorityQueue() : this(null) { }
+	public PriorityQueue(int capacity) : this(capacity, null) { }
+	public PriorityQueue(IComparer<T> comparer) : this(16, comparer) { }
+	public PriorityQueue(int capacity, IComparer<T> comparer)
+	{
+		this.comparer = comparer ?? Comparer<T>.Default;
+		this.heap = new T[capacity];
+	}
+	public void Add(T v)
+	{
+		if (Count >= heap.Length) Array.Resize(ref heap, Count * 2);
+		heap[Count] = v;
+		SiftUp(Count++);
+	}
+	public T RemoveFirst()
+	{
+		var v = Top();
+		heap[0] = heap[--Count];
+		if (Count > 0) SiftDown(0);
+		return v;
+	}
+	public T Top()
+	{
+		if (Count > 0) return heap[0];
+		throw new InvalidOperationException();
+	}
+	void SiftUp(int n)
+	{
+		var v = heap[n];
+		for (var n2 = n / 2; n > 0 && comparer.Compare(v, heap[n2]) > 0; n = n2, n2 /= 2) heap[n] = heap[n2];
+		heap[n] = v;
+	}
+	void SiftDown(int n)
+	{
+		var v = heap[n];
+		for (var n2 = n * 2; n2 < Count; n = n2, n2 *= 2)
+		{
+			if (n2 + 1 < Count && comparer.Compare(heap[n2 + 1], heap[n2]) > 0) n2++;
+			if (comparer.Compare(v, heap[n2]) >= 0) break;
+			heap[n] = heap[n2];
+		}
+		heap[n] = v;
 	}
 }
