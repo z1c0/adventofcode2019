@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
+using aoc;
 
 Console.WriteLine("Day 18 - START");
 var sw = Stopwatch.StartNew();
@@ -13,42 +13,53 @@ Console.WriteLine($"END (after {sw.Elapsed.TotalSeconds} seconds)");
 static void Part1()
 {	
 	var map = ReadInput();
-	var (start, numberOfKeys) = AnalyzeMap(map);
-	var node = BFS(new Node(start.x, start.y), map, numberOfKeys);
-	Console.WriteLine($"Shortest path: {node.Distance}");
+	var (x, y) = map.Find('@');
+	var numberOfKeys = map.Count(c => c >= 'a' && c <= 'z');
+	var state = BFS(new State(x, y), map, numberOfKeys);
+	Console.WriteLine($"Shortest path: {state.Distance}");
 }
 
 static void Part2()
 {	
+	var map = ReadInput();
+	var (x, y) = map.Find('@');
+	map.Fill('#', (xx, yy) => xx == x || yy == y);
+	var start1 = (x - 1, y - 1);
+	var start2 = (x + 1, y - 1);
+	var start3 = (x - 1, y + 1);
+	var start4 = (x + 1, y + 1);
+	map[start1] = '@';
+	map[start2] = '@';
+	map[start3] = '@';
+	map[start4] = '@';
+	map.Print();
 }
 
-static Node BFS(Node startNode, char[,] map, int numberOfKeys)
+static State BFS(State startState, Grid map, int numberOfKeys)
 {
-	var visitedNodes = new Dictionary<string, int>
+	var visitedStates = new Dictionary<string, int>
 	{
-		{ startNode.FingerPrint(), 0 }
+		{ startState.FingerPrint(), 0 }
 	};
-	var queue = new PriorityQueue<Node>();
-	queue.Add(startNode);
-	startNode.Distance = 0;
+	var queue = new PriorityQueue<State>();
+	queue.Add(startState);
 	while (queue.Count > 0)
 	{
-		startNode = queue.RemoveFirst();
-		var adjacentNodes = GetAdjacentNodes(startNode, map).ToList();	
-		if (adjacentNodes.Any())
+		startState = queue.RemoveFirst();
+		var adjacentStates = startState.GetAdjacent(map).ToList();	
+		if (adjacentStates.Any())
 		{
-			foreach (var node in adjacentNodes)
+			foreach (var state in adjacentStates)
 			{
-				node.Distance = startNode.Distance + 1;
-				var fingerPrint = node.FingerPrint();
-				if (!visitedNodes.ContainsKey(fingerPrint) || visitedNodes[fingerPrint] > node.Distance)
+				var fingerPrint = state.FingerPrint();
+				if (!visitedStates.ContainsKey(fingerPrint) || visitedStates[fingerPrint] > state.Distance)
 				{
-					visitedNodes.Add(fingerPrint, node.Distance);
-					queue.Add(node);
+					visitedStates.Add(fingerPrint, state.Distance);
+					queue.Add(state);
 
-					if (node.Keys.Count == numberOfKeys)
+					if (state.Keys.Count == numberOfKeys)
 					{
-						return node;
+						return state;
 					}
 				}
 			}
@@ -57,84 +68,14 @@ static Node BFS(Node startNode, char[,] map, int numberOfKeys)
 	return null;
 }
 
-static IEnumerable<Node> GetAdjacentNodes(Node node, char[,] map)
+static Grid ReadInput()
 {
-	var n1 = new Node(node.X - 1, node.Y) { Keys = node.Keys.ToList() };
-	var n2 = new Node(node.X + 1, node.Y) { Keys = node.Keys.ToList() };
-	var n3 = new Node(node.X, node.Y - 1) { Keys = node.Keys.ToList() };
-	var n4 = new Node(node.X, node.Y + 1) { Keys = node.Keys.ToList() };
-	if (CheckNode(n1, map)) yield return n1;
-	if (CheckNode(n2, map)) yield return n2;
-	if (CheckNode(n3, map)) yield return n3;
-	if (CheckNode(n4, map)) yield return n4;
+	return Grid.FromFile("input.txt");
 }
 
-static bool CheckNode(Node node, char[,] map)
+class State : IComparable
 {
-	var w = map.GetLength(1);
-	var h = map.GetLength(0);
-	if (node.X < 0 || node.X >= w || node.Y < 0 || node.Y >= h)
-	{
-		return false;
-	}
-	var c = map[node.Y, node.X];
-	if (c == '#')
-	{
-		return false;
-	}
-	if (c >= 'A' && c <= 'Z')
-	{		
-		// Do we have a key for this door?
-		return node.Keys.Contains(char.ToLower(c));
-	}
-	if (c >= 'a' && c <= 'z' && !node.Keys.Contains(c))
-	{
-		node.Keys.Add(c);
-	}
-	return true;
-}
-
-static ((int x, int y) pos, int numberOfKeys) AnalyzeMap(char[,] map)
-{
-	var pos = (-1, -1);
-	var numberOfKeys = 0;
-	for (var y = 0; y < map.GetLength(0); y++)
-	{
-		for (var x = 0; x < map.GetLength(1); x++)
-		{
-			var c = map[y, x];
-			if (c == '@')
-			{
-				pos.Item1 = x;
-				pos.Item2 = y;
-			}
-			if (c >= 'a' && c <= 'z')
-			{
-				numberOfKeys++;
-			}
-		}		
-	}
-	return (pos, numberOfKeys);
-}
-
-static char[,] ReadInput()
-{
-	var lines = File.ReadAllLines("input.txt");
-	var h = lines.Length;
-	var w = lines.First().Length;
-	var map = new char[h, w];
-	for (var y = 0; y < h; y++)
-	{
-		for (var x = 0; x < w; x++)
-		{
-			map[y, x] = lines[y][x];
-		}
-	}
-	return map;
-}
-class Node : IComparable
-{
-	internal Node(int x, int y)
+	internal State(int x, int y)
 	{
 		X = x;
 		Y = y;
@@ -159,7 +100,42 @@ class Node : IComparable
 
 	public int CompareTo(object obj)
 	{
-		return ((Node)obj).Distance.CompareTo(Distance);
+		return ((State)obj).Distance.CompareTo(Distance);
+	}
+
+	internal IEnumerable<State> GetAdjacent(Grid map)
+	{
+		var n1 = new State(X - 1, Y) { Keys = Keys.ToList(), Distance = Distance + 1 };
+		var n2 = new State(X + 1, Y) { Keys = Keys.ToList(), Distance = Distance + 1 };
+		var n3 = new State(X, Y - 1) { Keys = Keys.ToList(), Distance = Distance + 1 };
+		var n4 = new State(X, Y + 1) { Keys = Keys.ToList(), Distance = Distance + 1 };
+		if (n1.Check(map)) yield return n1;
+		if (n2.Check(map)) yield return n2;
+		if (n3.Check(map)) yield return n3;
+		if (n4.Check(map)) yield return n4;
+	}
+
+	private bool Check(Grid map)
+	{
+		if (X < 0 || X >= map.Width || Y < 0 || Y >= map.Height)
+		{
+			return false;
+		}
+		var c = map[X, Y];
+		if (c == '#')
+		{
+			return false;
+		}
+		if (c >= 'A' && c <= 'Z')
+		{		
+			// Do we have a key for this door?
+			return Keys.Contains(char.ToLower(c));
+		}
+		if (c >= 'a' && c <= 'z' && !Keys.Contains(c))
+		{
+			Keys.Add(c);
+		}
+		return true;
 	}
 }
 
