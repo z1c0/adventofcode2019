@@ -32,6 +32,9 @@ static void Part2()
 		"NOT C T",
 		" OR T J",
 		"AND D J",
+		"AND E T",
+		" OR H T",
+		"AND T J",
 		"RUN"
 	});
 }
