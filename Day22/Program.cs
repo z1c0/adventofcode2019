@@ -6,21 +6,38 @@ using System.Linq;
 
 Console.WriteLine("Day 22 - START");
 var sw = Stopwatch.StartNew();
-Part1(10007, 1);
-//Part1(119315717514047, 1);
-//Part1(119315717514047);
+//Part1(10007, 10007);
+
+//Part2(10007, 1);
+Part2(10007, 5010);
+//Part2(10007, 10007 * 3);
+
+//Part2(10007, 2);
+
+//Part2(119315717514047, 17574135437386);
+
+// 119315717514047
+// 101741582076661
+
+//System.Console.WriteLine(119315717514047 - 101741582076661);
+//17574135437386
+System.Console.WriteLine(119315717514047 % 17574135437386);
+System.Console.WriteLine(119315717514047 / 17574135437386);
+
+//Part2(119315717514047, 101741582076661);
+
 Console.WriteLine($"END (after {sw.Elapsed.TotalSeconds} seconds)");
 
-static void Part1(long count, long iterations)
+static void Part1(int count, int iterations)
 {
-	var deck = new List<long>();
-	for (var l = 0L; l < count; l++)
+	var deck = new List<int>();
+	for (var i = 0; i < count; i++)
 	{
-		deck.Add(l);
+		deck.Add(i);
 	}
 	var deck2 = deck.ToList();
 	var instructions = ReadInput().ToList();
-	for (var l = 0L; l < iterations; l++)
+	while (iterations-- > 0)
 	{
 		foreach (var instr in instructions)
 		{
@@ -64,6 +81,51 @@ static void Part1(long count, long iterations)
 
 	var pos = deck.IndexOf(2019);
 	Console.WriteLine($"Position of card {2019} is {pos}");
+	Console.WriteLine($"Card at {2020} is {deck[2020]}");
+}
+
+static void Part2(long count, long iterations)
+{
+	var pos = 2020L;
+	var oldPos = pos;
+	var instructions = ReadInput().ToList();
+	instructions.Reverse();
+	var i = 0;
+	while (i++ < iterations)
+	{
+		foreach (var instr in instructions)
+		{
+			switch (instr.Technique)
+			{
+				case Technique.NewStack:
+					pos = Math.Abs(pos + 1 - count);
+					break;
+
+				case Technique.Cut:
+					var cut = (instr.Value < 0) ? count + instr.Value : instr.Value;
+					pos = (pos + cut) % count;
+					break;
+
+				case Technique.DealWithIncrement:
+					var inc = instr.Value;
+					while (pos % inc != 0)
+					{
+						pos += count;
+					}
+					pos /= inc;
+					break;
+
+				default:
+					throw new InvalidOperationException($"{instr}");
+			}
+		}
+		Console.WriteLine($"{oldPos} <- {pos}");
+		oldPos = pos;
+	}
+	Console.WriteLine($"-> {pos}");
+	//Console.WriteLine($"-> {(pos * iterations) % count}");
+	
+	// 53403051010030 too low  (1 iteration)
 }
 
 static IEnumerable<(Technique Technique, int Value)> ReadInput()
