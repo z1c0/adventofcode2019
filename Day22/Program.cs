@@ -3,29 +3,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Numerics;
 
 Console.WriteLine("Day 22 - START");
 var sw = Stopwatch.StartNew();
-//Part1(10007, 10007);
-
-//Part2(10007, 1);
-Part2(10007, 5010);
-//Part2(10007, 10007 * 3);
-
-//Part2(10007, 2);
-
-//Part2(119315717514047, 17574135437386);
-
-// 119315717514047
-// 101741582076661
-
-//System.Console.WriteLine(119315717514047 - 101741582076661);
-//17574135437386
-System.Console.WriteLine(119315717514047 % 17574135437386);
-System.Console.WriteLine(119315717514047 / 17574135437386);
-
-//Part2(119315717514047, 101741582076661);
-
+Part1(10017, 1);
+Part2(new BigInteger(119315717514047), new BigInteger(101741582076661));
 Console.WriteLine($"END (after {sw.Elapsed.TotalSeconds} seconds)");
 
 static void Part1(int count, int iterations)
@@ -78,54 +61,68 @@ static void Part1(int count, int iterations)
 			}
 		}
 	}
-
 	var pos = deck.IndexOf(2019);
 	Console.WriteLine($"Position of card {2019} is {pos}");
 	Console.WriteLine($"Card at {2020} is {deck[2020]}");
 }
 
-static void Part2(long count, long iterations)
+static void Part2(BigInteger count, BigInteger iterations)
 {
-	var pos = 2020L;
-	var oldPos = pos;
-	var instructions = ReadInput().ToList();
-	instructions.Reverse();
-	var i = 0;
-	while (i++ < iterations)
-	{
-		foreach (var instr in instructions)
-		{
-			switch (instr.Technique)
-			{
-				case Technique.NewStack:
-					pos = Math.Abs(pos + 1 - count);
-					break;
-
-				case Technique.Cut:
-					var cut = (instr.Value < 0) ? count + instr.Value : instr.Value;
-					pos = (pos + cut) % count;
-					break;
-
-				case Technique.DealWithIncrement:
-					var inc = instr.Value;
-					while (pos % inc != 0)
-					{
-						pos += count;
-					}
-					pos /= inc;
-					break;
-
-				default:
-					throw new InvalidOperationException($"{instr}");
-			}
-		}
-		Console.WriteLine($"{oldPos} <- {pos}");
-		oldPos = pos;
-	}
-	Console.WriteLine($"-> {pos}");
-	//Console.WriteLine($"-> {(pos * iterations) % count}");
+	//
+	// I shamelessly stole this from https://github.com/PJohannessen/AdventOfCode/blob/master/2019/22-2.linq
+	// No way I could have solved this.
+	// No idea how many hours I had already wasted on that.
+	//
+	BigInteger lookAt = 2020;
 	
-	// 53403051010030 too low  (1 iteration)
+	BigInteger increment_mul = 1;
+	BigInteger offset_diff = 0;
+
+	var instructions = ReadInput().ToList();
+	foreach (var i in instructions)
+	{
+		switch  (i.Technique)
+		{
+			case Technique.NewStack:
+				increment_mul = increment_mul * -1 % count;
+				offset_diff = (offset_diff + increment_mul) % count;
+				break;
+
+			case Technique.Cut:
+				offset_diff = (offset_diff + i.Value * increment_mul) % count;
+				break;
+
+			case Technique.DealWithIncrement:
+				increment_mul = increment_mul * Inv(i.Value, count) % count;
+				break;
+		}
+	}
+	
+	(BigInteger increment, BigInteger offset) = Sequence(iterations, count, increment_mul, offset_diff);
+  var answer = Nth(offset, increment, lookAt, count);
+  if (answer < 0)
+	{
+		answer = count + answer;
+	}
+	Console.WriteLine(answer);
+}
+
+static BigInteger Inv(BigInteger n, BigInteger count)
+{
+	return BigInteger.ModPow(n, count - 2, count);
+}
+
+static BigInteger Nth(BigInteger offset, BigInteger increment, BigInteger i, BigInteger count)
+{
+		return (offset + i * increment) % count;
+}
+
+static (BigInteger increment, BigInteger offset) Sequence(BigInteger interations, BigInteger count, BigInteger increment_mul, BigInteger offset_diff)
+{
+		var increment = BigInteger.ModPow(increment_mul, interations, count);
+		var offset = offset_diff * (1 - increment) * Inv((1 - increment_mul) % count, count);
+		offset %= count;
+		return (increment, offset);
 }
 
 static IEnumerable<(Technique Technique, int Value)> ReadInput()

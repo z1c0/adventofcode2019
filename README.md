@@ -2,6 +2,11 @@
 
 https://adventofcode.com/2019
 
+![Advent of Code 2019 finished](aoc_2019_50_stars.png)
+
+![Advent of Code 2019 finished](aoc_2019_done.png)
+
+
 ## Day 18
 
 I almost gave up on this one but finally succeeded as my last-but-one (see Day22)
@@ -11,9 +16,8 @@ so often with this kind of way-finding-challenges.
 
 ## Day 22
 
-The second part took me way longer than it should have. I had figured out the solution
-of how to handle the **huge stack of cards** rather quickly. Then instead of running that
-technique for `101741582076661` (in my case) I kept looking for another "clever" solution.
-As it turned out, I didn't find one and the runtime of the iterations was not too
-bad after all (with printing progress, meh). So instead of trying to be clever,
-I should have just run with my first solution.
+There was absolutely no way I could have solved the second part of that puzzle.
+despite of wasting many hours on the problem. I went to the forums and more or
+less copied a working version. This was a big bummer since it was the final
+and 300th star missing for me. "Achieving" it that way just felt dirty and
+not the least bit satisfying.
